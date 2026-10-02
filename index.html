@@ -19,15 +19,28 @@ button:disabled{opacity:.5}
 <header><h1>PETA JABATAN PERANGKAT DAERAH</h1><p>Unggah dokumen – tersimpan otomatis di Google Drive</p></header>
 <main>
 <section class="card"><h2>Unggah File</h2>
-<select id="opd"><option value="">Memuat daftar Perangkat Daerah…</option></select>
+<select id="opd"><option value="">Memuat daftar Perangkat Daerah…</option></select><div id="st" style="font-size:12px;margin-top:6px"></div>
 <div id="drop">Klik atau seret file ke sini (maks ± 25 MB per file)</div>
 <input type="file" id="fi" multiple hidden>
 <div id="q" style="margin-top:12px"></div>
 <button id="go" disabled onclick="start()">Upload ke Drive</button>
 </section>
+<div class="mut" style="text-align:center;font-size:11px">v6</div>
 </main>
 <script>
 const API='PASTE_URL_EXEC_DI_SINI'; // ganti dengan Web app URL (berakhiran /exec)
+async function api(url,opt){
+  if(API.startsWith('PASTE_'))throw new Error('URL Apps Script belum diisi di index.html (baris const API)');
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/[^\/]+\/exec$/.test(API.trim()))throw new Error('URL Apps Script tidak valid: harus lengkap, mis. https://script.google.com/macros/s/XXXX/exec (sekarang: '+API.slice(0,40)+')');
+  const r=await fetch(url,opt),t=await r.text();let j;
+  try{j=JSON.parse(t)}catch(_){
+    if(/ServiceLogin|accounts\.google\.com/i.test(t))throw new Error('akses deployment belum "Anyone" (Deploy > Manage deployments > Who has access: Anyone)');
+    if(/function not found/i.test(t))throw new Error('Code.gs belum versi terbaru / belum Deploy > New version');
+    throw new Error('respons bukan JSON, URL /exec salah atau deployment belum diperbarui ('+t.slice(0,50).replace(/\s+/g," ")+')');
+  }
+  if(j&&j.error)throw new Error(j.error);
+  return j;
+}
 let files=[];const $=id=>document.getElementById(id);
 const d=$('drop'),fi=$('fi');
 d.onclick=()=>fi.click();
@@ -40,7 +53,7 @@ function sz(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.ceil(n/1024)+'
 function render(){$('q').innerHTML=files.map((f,i)=>`<div class="row"><span>${esc(f.name)}</span><span class="mut" id="s${i}">${sz(f.size)}</span></div>`).join('');$('go').disabled=!files.length}
 function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function b64(f){return new Promise((r,j)=>{const x=new FileReader();x.onload=()=>r(x.result.split(',')[1]);x.onerror=j;x.readAsDataURL(f)})}
-function up(f,opd){return b64(f).then(b=>fetch(API,{method:'POST',body:JSON.stringify({name:f.name,mime:f.type,base64:b,opd:opd})})).then(r=>r.json()).then(r=>{if(r.error)throw new Error(r.error);return r})}
+function up(f,opd){return b64(f).then(b=>api(API,{method:'POST',body:JSON.stringify({name:f.name,mime:f.type,base64:b,opd:opd})}))}
 function limit(p,ms){return Promise.race([p,new Promise((_,no)=>setTimeout(()=>no(new Error('melebihi '+ms/1000+' detik, cek folder Drive lalu coba lagi')),ms))])}
 async function start(){
   render();$('go').disabled=true;const gagal=[];
@@ -53,9 +66,9 @@ async function start(){
   }
   files=gagal;fi.value='';$('go').disabled=!gagal.length;$('go').textContent=gagal.length?'Coba lagi (yang gagal)':'Upload ke Drive';
 }
-fetch(API+'?action=opd').then(r=>r.json()).then(l=>{
-  if(!Array.isArray(l)||!l.length)return fallback();
+api(API+'?action=opd').then(l=>{
+  if(!Array.isArray(l)||!l.length)throw new Error('daftar kosong, cek kolom B (NAMA PD) di sheet');
   $('opd').innerHTML='<option value="">— Pilih Perangkat Daerah —</option>'+l.map(v=>`<option>${esc(v)}</option>`).join('');
 }).catch(fallback);
-function fallback(){$('opd').outerHTML='<input type="text" id="opd" placeholder="Nama Perangkat Daerah (daftar tidak termuat, ketik manual)">'}
+function fallback(e){$('opd').outerHTML='<input type="text" id="opd" placeholder="Nama Perangkat Daerah (ketik manual)">';$('st').textContent='Daftar PD tidak termuat: '+((e&&e.message)||'tidak diketahui');$('st').className='err'}
 </script></body></html>
