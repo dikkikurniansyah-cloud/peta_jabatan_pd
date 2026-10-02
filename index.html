@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id"><head><base target="_top"><meta charset="utf-8">
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--tx:#1b2433;--mut:#6b7585;--pri:#1e5eff;--bd:#dde3ee}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1420;--card:#182032;--tx:#e8edf6;--mut:#93a0b6;--bd:#2a3550}}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+header{background:var(--pri);color:#fff;padding:20px 24px}header h1{margin:0;font-size:20px;letter-spacing:.5px}header p{margin:4px 0 0;opacity:.85;font-size:13px}
+main{max-width:860px;margin:20px auto;padding:0 16px;display:grid;gap:16px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:18px}
+h2{margin:0 0 12px;font-size:16px}
+input[type=text],select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx)}
+#drop{border:2px dashed var(--bd);border-radius:12px;padding:30px;text-align:center;color:var(--mut);cursor:pointer;margin-top:12px}
+#drop.on{border-color:var(--pri);color:var(--pri)}
+button{background:var(--pri);color:#fff;border:0;padding:10px 18px;border-radius:8px;cursor:pointer;font-size:14px}
+button:disabled{opacity:.5}
+.row{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd);font-size:13px}
+.row:last-child{border:0}a{color:var(--pri)}.mut{color:var(--mut)}.ok{color:#1a9d55}.err{color:#d33}
+</style></head><body>
+<header><h1>PETA JABATAN PERANGKAT DAERAH</h1><p>Unggah dokumen – tersimpan otomatis di Google Drive</p></header>
+<main>
+<section class="card"><h2>Unggah File</h2>
+<select id="opd"><option value="">Memuat daftar Perangkat Daerah…</option></select>
+<div id="drop">Klik atau seret file ke sini (maks ± 25 MB per file)</div>
+<input type="file" id="fi" multiple hidden>
+<div id="q" style="margin-top:12px"></div>
+<button id="go" disabled onclick="start()">Upload ke Drive</button>
+</section>
+</main>
+<script>
+let files=[];const $=id=>document.getElementById(id);
+const d=$('drop'),fi=$('fi');
+d.onclick=()=>fi.click();
+fi.onchange=()=>add(fi.files);
+d.ondragover=e=>{e.preventDefault();d.classList.add('on')};
+d.ondragleave=()=>d.classList.remove('on');
+d.ondrop=e=>{e.preventDefault();d.classList.remove('on');add(e.dataTransfer.files)};
+function add(l){files=files.concat([...l]);render()}
+function sz(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.ceil(n/1024)+' KB'}
+function render(){$('q').innerHTML=files.map((f,i)=>`<div class="row"><span>${esc(f.name)}</span><span class="mut" id="s${i}">${sz(f.size)}</span></div>`).join('');$('go').disabled=!files.length}
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function b64(f){return new Promise((r,j)=>{const x=new FileReader();x.onload=()=>r(x.result.split(',')[1]);x.onerror=j;x.readAsDataURL(f)})}
+function up(f,opd){return b64(f).then(b=>new Promise((ok,no)=>google.script.run.withSuccessHandler(ok).withFailureHandler(no).uploadFile(f.name,f.type,b,opd)))}
+function limit(p,ms){return Promise.race([p,new Promise((_,no)=>setTimeout(()=>no(new Error('melebihi '+ms/1000+' detik, cek folder Drive lalu coba lagi')),ms))])}
+async function start(){
+  render();$('go').disabled=true;const gagal=[];
+  for(let i=0;i<files.length;i++){
+    const s=$('s'+i),t0=Date.now();
+    const tick=setInterval(()=>s.textContent='mengunggah… '+Math.floor((Date.now()-t0)/1000)+' dtk',500);
+    try{if(files[i].size>25*1048576)throw new Error('file terlalu besar');const r=await limit(up(files[i],$('opd').value),60000);s.textContent='✔ selesai ('+Math.round((Date.now()-t0)/1000)+' dtk)'+(r&&r.logged?' · tercatat di sheet':' · gagal dicatat di sheet');s.className='ok'}
+    catch(e){s.textContent='✖ gagal: '+(e.message||e);s.className='err';gagal.push(files[i])}
+    clearInterval(tick);
+  }
+  files=gagal;fi.value='';$('go').disabled=!gagal.length;$('go').textContent=gagal.length?'Coba lagi (yang gagal)':'Upload ke Drive';
+}
+google.script.run.withSuccessHandler(l=>{
+  if(!l.length)return fallback();
+  $('opd').innerHTML='<option value="">— Pilih Perangkat Daerah —</option>'+l.map(v=>`<option>${esc(v)}</option>`).join('');
+}).withFailureHandler(fallback).getOpdList();
+function fallback(){$('opd').outerHTML='<input type="text" id="opd" placeholder="Nama Perangkat Daerah (daftar tidak termuat, ketik manual)">'}
+</script></body></html>
