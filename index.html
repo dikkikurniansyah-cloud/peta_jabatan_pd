@@ -28,7 +28,7 @@ button:disabled{opacity:.5}
 <div class="mut" style="text-align:center;font-size:11px">v6</div>
 </main>
 <script>
-const API='PASTE_URL_EXEC_DI_SINI'; // ganti dengan Web app URL (berakhiran /exec)
+const API='https://script.google.com/macros/s/AKfycbzS3gGDFSrx-Nw03kKK5FZsjPAsTshmv8azC80MgpcOWqiHyoXfmXgdLtWoYMpW7kvWJQ/exec'; // ganti dengan Web app URL (berakhiran /exec)
 async function api(url,opt){
   if(API.startsWith('PASTE_'))throw new Error('URL Apps Script belum diisi di index.html (baris const API)');
   if(!/^https:\/\/script\.google\.com\/macros\/s\/[^\/]+\/exec$/.test(API.trim()))throw new Error('URL Apps Script tidak valid: harus lengkap, mis. https://script.google.com/macros/s/XXXX/exec (sekarang: '+API.slice(0,40)+')');
